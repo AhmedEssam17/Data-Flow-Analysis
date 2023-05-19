@@ -12,7 +12,6 @@ def manageFile(filepath):
     lineNumber = 0
     variables = []
     occurrence = {}
-    liveVariables = {}
     reachingDefinitions = {}
 
     for line in file:
@@ -60,23 +59,21 @@ def manageFile(filepath):
     incrIndex = 0
     currentBraces = 0
 
+    reserved = 5
+
     for i in range(4, len(splits)):
-        if splits[i] in define:
-            statm = splits[i] + " "
-            operationsSplit.append(splits[i])
+        i = reserved
+        if i >= len(splits) - 1:
+            break
+        if splits[i] in variables:
             while splits[i] != ';':
-                if splits[i] in define:
-                    i += 1
-                    continue
-                if splits[i] == ',':
-                    statm = statm + splits[i] + " "
-                    operationsSplit.append(splits[i])
-                    i += 1
-                    continue
-                variables.append(splits[i])
                 statm = statm + splits[i]
                 operationsSplit.append(splits[i])
                 i += 1
+            if splits[i + 1] in doubles:
+                statm = statm + splits[i + 1]
+                operationsSplit.append(splits[i + 1])
+                i += 2
             statements[statNum] = statm
             if statNum not in mappingDictionary:
                 mappingDictionary[statNum] = []
@@ -85,7 +82,32 @@ def manageFile(filepath):
             operationsSplit.append('~')
             statm = ""
 
-        if splits[i] in scanf:
+        elif splits[i] in define:
+            statm = splits[i] + " "
+            # operationsSplit.append(splits[i])
+            while splits[i] != ';':
+                if splits[i] in define:
+                    i += 1
+                    continue
+                if splits[i] == ',':
+                    statm = statm + splits[i] + " "
+                    # operationsSplit.append(splits[i])
+                    i += 1
+                    continue
+                variables.append(splits[i])
+                statm = statm + splits[i]
+                # operationsSplit.append(splits[i])
+                i += 1
+            statements[statNum] = statm
+            if statNum not in mappingDictionary:
+                mappingDictionary[statNum] = []
+            mappingDictionary[statNum].append(statNum + 1)
+            statNum += 1
+            i += 1
+            # operationsSplit.append('~')
+            statm = ""
+
+        elif splits[i] in scanf:
             statm = "scan("
             operationsSplit.append(splits[i])
             while splits[i] != '&':
@@ -100,8 +122,9 @@ def manageFile(filepath):
             statNum += 1
             operationsSplit.append('~')
             statm = ""
+            i += 2
 
-        if splits[i] in printf:
+        elif splits[i] in printf:
             statm = "print("
             while splits[i] != ',' and splits[i] != ';':
                 i += 1
@@ -119,9 +142,10 @@ def manageFile(filepath):
                 statNum += 1
                 operationsSplit.append('~')
                 statm = ""
+                i += 2
                 flag = 0
 
-        if splits[i] == "for":
+        elif splits[i] == "for":
             semicol = 0
             braces += 1
             i += 2
@@ -139,6 +163,8 @@ def manageFile(filepath):
                             mappingDictionary[statNum] = []
                     statNum += 1
                     statm = ""
+                    if semicol == 1:
+                        operationsSplit.append("if")
                     i += 1
                     continue
                 if splits[i] == ')':
@@ -151,8 +177,11 @@ def manageFile(filepath):
                     statm = statm + splits[i]
                     operationsSplit.append(splits[i])
                     i += 1
+            i += 1
 
-        if splits[i] == "if":
+        elif splits[i] == "if":
+            operationsSplit.append(splits[i])
+            statm = "if("
             currentBraces = braces
             braces += 1
             i += 2
@@ -160,6 +189,7 @@ def manageFile(filepath):
                 statm = statm + splits[i]
                 operationsSplit.append(splits[i])
                 i += 1
+            statm = statm + splits[i]
             statements[statNum] = statm
             if statNum not in mappingDictionary:
                 mappingDictionary[statNum] = []
@@ -167,19 +197,21 @@ def manageFile(filepath):
             ifIndex = statNum
             statNum += 1
             operationsSplit.append('~')
+            i += 2
             statm = ""
 
-        if splits[i] == '}':
+        elif splits[i] == '}':
             braces -= 1
             if braces == 0:
-                statements[statNum] = incrFor
-                if statNum not in mappingDictionary:
-                    mappingDictionary[statNum] = []
-                mappingDictionary[statNum].append(conditionIndex)
-                mappingDictionary[conditionIndex].append(statNum + 1)
-                incrIndex = statNum
-                statNum += 1
-                incrFor = ""
+                if incrFor:
+                    statements[statNum] = incrFor
+                    if statNum not in mappingDictionary:
+                        mappingDictionary[statNum] = []
+                    mappingDictionary[statNum].append(conditionIndex)
+                    mappingDictionary[conditionIndex].append(statNum + 1)
+                    incrIndex = statNum
+                    statNum += 1
+                    incrFor = ""
                 for x in incrSplit:
                     operationsSplit.append(x)
                 operationsSplit.append('~')
@@ -188,14 +220,230 @@ def manageFile(filepath):
                     mappingDictionary[ifIndex] = []
                 nextInd = int(mappingDictionary[ifIndex][0])
                 mappingDictionary[ifIndex].append(nextInd + 1)
+            i += 1
 
-        if splits[i] == "return":
-            mappingDictionary[statNum-1] = "x"
+        elif splits[i] == "return":
+            mappingDictionary[statNum - 1] = "x"
+            i += 2
+
+        elif splits[i] == ';':
+            if splits[i + 1] in doubles:
+                i += 2
+            i += 1
+
+        reserved = i
 
     print(variables)
     print(statements)
     print(operationsSplit)
     print(mappingDictionary)
+
+    rows = len(statements)
+    cols = 5
+    liveVariable = [[0] * cols for _ in range(rows)]
+    liveVariable[0][0] = "Statement"
+    liveVariable[0][1] = "Define"
+    liveVariable[0][2] = "Kill"
+    liveVariable[0][3] = "Input"
+    liveVariable[0][4] = "Output"
+
+    opSplit = 0
+    defines = ""
+    kills = ""
+    defDictionary = {}
+    killDictionary = {}
+
+    for key in statements.keys():
+        if key != 0:
+            if key not in defDictionary:
+                defDictionary[key] = []
+            if key not in killDictionary:
+                killDictionary[key] = []
+            if operationsSplit[opSplit] == "scanf":
+                liveVariable[key][0] = str(key)
+                liveVariable[key][1] = "{}"
+                liveVariable[key][2] = "{" + operationsSplit[opSplit + 1] + "}"
+                defDictionary[key].append("~")
+                killDictionary[key].append(operationsSplit[opSplit + 1])
+
+            elif operationsSplit[opSplit] == "printf":
+                liveVariable[key][0] = str(key)
+                liveVariable[key][1] = "{" + operationsSplit[opSplit + 1] + "}"
+                liveVariable[key][2] = "{}"
+                defDictionary[key].append(operationsSplit[opSplit + 1])
+                killDictionary[key].append("~")
+
+            elif operationsSplit[opSplit] in variables:
+                liveVariable[key][0] = str(key)
+                liveVariable[key][2] = "{" + operationsSplit[opSplit] + "}"
+                killDictionary[key].append(operationsSplit[opSplit])
+                while operationsSplit[opSplit] != '~':
+                    opSplit += 1
+                    if operationsSplit[opSplit] in doubles:
+                        defDictionary[key].append(operationsSplit[opSplit - 1])
+                        defines = defines + operationsSplit[opSplit - 1]
+                        continue
+                    if operationsSplit[opSplit] in variables:
+                        if operationsSplit[opSplit] not in defines:
+                            defDictionary[key].append(operationsSplit[opSplit])
+                            if len(defines) == 0:
+                                defines = defines + operationsSplit[opSplit]
+                            else:
+                                defines = defines + ", " + operationsSplit[opSplit]
+                if len(defines) == 0:
+                    defDictionary[key].append("~")
+                liveVariable[key][1] = "{" + defines + "}"
+                defines = ""
+
+            elif operationsSplit[opSplit] == "if":
+                liveVariable[key][0] = str(key)
+                liveVariable[key][2] = "{}"
+                killDictionary[key].append("~")
+                while operationsSplit[opSplit] != '~':
+                    opSplit += 1
+                    if operationsSplit[opSplit] in variables:
+                        if operationsSplit[opSplit] not in defines:
+                            defDictionary[key].append(operationsSplit[opSplit])
+                            if len(defines) == 0:
+                                defines = defines + operationsSplit[opSplit]
+                            else:
+                                defines = defines + ", " + operationsSplit[opSplit]
+                liveVariable[key][1] = "{" + defines + "}"
+                defines = ""
+
+            if opSplit >= len(operationsSplit) - 1:
+                break
+            while operationsSplit[opSplit] != '~':
+                opSplit += 1
+            if opSplit >= len(operationsSplit) - 1:
+                break
+            if operationsSplit[opSplit + 1] == '~':
+                opSplit += 1
+            opSplit += 1
+
+    # liveVariable[key][0] = "Statement"
+    # liveVariable[key][1] = "Define"
+    # liveVariable[key][2] = "Kill"
+    # liveVariable[key][3] = "Input"
+    # liveVariable[key][4] = "Output"
+
+    defs = []
+    kills = []
+    inputs = []
+    outputs = []
+    routes = []
+
+    print(defDictionary)
+    print(killDictionary)
+
+    inputDictionary = {}
+    outputDictionary = {}
+
+    reservedKey = len(statements) - 1
+    startKey = 0
+    endKey = 0
+    flag = 1
+    iterationFlag = 0
+    while iterationFlag < 2:
+        if iterationFlag == 1:
+            reservedKey = startKey
+            outputDictionary[reservedKey].remove("!")
+        for key in reversed(statements.keys()):
+            flag = 1
+            key = reservedKey
+            if iterationFlag == 1:
+                if key == endKey - 1:
+                    break
+            if key > 0:
+                if key not in inputDictionary:
+                    inputDictionary[key] = []
+                if key not in outputDictionary:
+                    outputDictionary[key] = []
+                if mappingDictionary[key] == "x":
+                    liveVariable[key][3] = "{}"
+                    inputDictionary[key].append("~")
+                elif len(mappingDictionary[key]) > 1:
+                    for route in mappingDictionary[key]:
+                        if route not in outputDictionary:
+                            for char in defDictionary[route]:
+                                if char in variables:
+                                    if char in inputs:
+                                        continue
+                                    else:
+                                        inputs.append(char)
+                        else:
+                            for char in outputDictionary[route]:
+                                if char in variables:
+                                    if char in inputs:
+                                        continue
+                                    else:
+                                        inputs.append(char)
+                    inString = ""
+                    for ins in inputs:
+                        inputDictionary[key].append(ins)
+                        if len(inString) == 0:
+                            inString = inString + ins
+                        else:
+                            inString = inString + ", " + ins
+                    liveVariable[key][3] = "{" + inString + "}"
+                else:
+                    target = int(mappingDictionary[key][0])
+                    if target in outputDictionary:
+                        liveVariable[key][3] = liveVariable[target][4]
+                        inputDictionary[key] = outputDictionary[target]
+                        for char in inputDictionary[key]:
+                            if char in variables:
+                                inputs.append(char)
+                    else:
+                        outputDictionary[key].append("!")
+                        reservedKey = mappingDictionary[key][0]
+                        startKey = key
+                        endKey = reservedKey + 1
+                        flag = 0
+                if flag:
+                    for char in defDictionary[key]:
+                        if char in variables:
+                            defs.append(char)
+                    for char in killDictionary[key]:
+                        if char in variables:
+                            kills.append(char)
+                    for killed in kills:
+                        if killed in inputs:
+                            inputs.remove(killed)
+                    for defined in defs:
+                        if defined in inputs:
+                            continue
+                        else:
+                            inputs.append(defined)
+                    for outs in inputs:
+                        outputs.append(outs)
+
+                    outString = ""
+                    for outs in outputs:
+                        outputDictionary[key].append(outs)
+                        if len(outString) == 0:
+                            outString = outString + outs
+                        else:
+                            outString = outString + ", " + outs
+                    liveVariable[key][4] = "{" + outString + "}"
+
+                    defs.clear()
+                    kills.clear()
+                    inputs.clear()
+                    outputs.clear()
+                    reservedKey = key - 1
+        if startKey == 0 and endKey == 0:
+            break
+        else:
+            for row in liveVariable:
+                print(row)
+            iterationFlag += 1
+
+    for row in liveVariable:
+        print(row)
+
+    print(inputDictionary)
+    print(outputDictionary)
 
     operators = {}
     operands = {}
