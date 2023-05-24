@@ -2,17 +2,17 @@ import math
 from chars import *
 
 
-def manageFile(filepath):
+def DataFlowAnalysis(filepath):
     file = open(filepath, 'r')
     splits = []
     word = ''
     opr = ''
     codeBox = ''
 
+    definite = int(input("Enter 0 for Possible, 1 for Definite\n"))
+
     lineNumber = 0
     variables = []
-    occurrence = {}
-    reachingDefinitions = {}
 
     for line in file:
         lineNumber += 1
@@ -42,8 +42,6 @@ def manageFile(filepath):
                     splits.append(opr)
                     opr = ''
                 word += char
-
-    print(splits)
 
     statements = {}
     statm = ""
@@ -233,11 +231,6 @@ def manageFile(filepath):
 
         reserved = i
 
-    print(variables)
-    print(statements)
-    print(operationsSplit)
-    print(mappingDictionary)
-
     rows = len(statements)
     cols = 5
     liveVariable = [[0] * cols for _ in range(rows)]
@@ -321,31 +314,38 @@ def manageFile(filepath):
                 opSplit += 1
             opSplit += 1
 
-    # liveVariable[key][0] = "Statement"
-    # liveVariable[key][1] = "Define"
-    # liveVariable[key][2] = "Kill"
-    # liveVariable[key][3] = "Input"
-    # liveVariable[key][4] = "Output"
-
     defs = []
     kills = []
     inputs = []
     outputs = []
     routes = []
 
-    print(defDictionary)
-    print(killDictionary)
-
     inputDictionary = {}
     outputDictionary = {}
+
+    definiteList = []
 
     reservedKey = len(statements) - 1
     startKey = 0
     endKey = 0
     flag = 1
     iterationFlag = 0
+
+    if definite == 1:
+        print("================================================================================================")
+        print("===================================Live Variable -- Definite====================================")
+        print("================================================================================================\n")
+    else:
+        print("================================================================================================")
+        print("===================================Live Variable -- Possible====================================")
+        print("================================================================================================\n")
+
     while iterationFlag < 2:
         if iterationFlag == 1:
+            print("****************************************First Iteration*****************************************")
+            for row in liveVariable:
+                formatted_row = ['{:<15}'.format(elem) for elem in row]
+                print(formatted_row)
             reservedKey = startKey
             outputDictionary[reservedKey].remove("!")
         for key in reversed(statements.keys()):
@@ -364,20 +364,45 @@ def manageFile(filepath):
                     inputDictionary[key].append("~")
                 elif len(mappingDictionary[key]) > 1:
                     for route in mappingDictionary[key]:
-                        if route not in outputDictionary:
-                            for char in defDictionary[route]:
-                                if char in variables:
-                                    if char in inputs:
-                                        continue
-                                    else:
-                                        inputs.append(char)
+                        if definite == 1:
+                            if route not in outputDictionary:
+                                for char in defDictionary[route]:
+                                    if char in variables:
+                                        if char in inputs:
+                                            definiteList.append(char)
+                                            continue
+                                        else:
+                                            inputs.append(char)
+                            else:
+                                for char in outputDictionary[route]:
+                                    if char in variables:
+                                        if char in inputs:
+                                            definiteList.append(char)
+                                            continue
+                                        else:
+                                            inputs.append(char)
+                            if len(definiteList) != 0:
+                                inputs.clear()
+                                for item in definiteList:
+                                    if item not in inputs:
+                                        inputs.append(item)
                         else:
-                            for char in outputDictionary[route]:
-                                if char in variables:
-                                    if char in inputs:
-                                        continue
-                                    else:
-                                        inputs.append(char)
+                            if route not in outputDictionary:
+                                for char in defDictionary[route]:
+                                    if char in variables:
+                                        if char in inputs:
+                                            definiteList.append(char)
+                                            continue
+                                        else:
+                                            inputs.append(char)
+                            else:
+                                for char in outputDictionary[route]:
+                                    if char in variables:
+                                        if char in inputs:
+                                            definiteList.append(char)
+                                            continue
+                                        else:
+                                            inputs.append(char)
                     inString = ""
                     for ins in inputs:
                         inputDictionary[key].append(ins)
@@ -435,71 +460,13 @@ def manageFile(filepath):
         if startKey == 0 and endKey == 0:
             break
         else:
-            for row in liveVariable:
-                print(row)
             iterationFlag += 1
 
+    print("\n****************************************Second Iteration****************************************")
     for row in liveVariable:
-        print(row)
+        formatted_row = ['{:<15}'.format(elem) for elem in row]
+        print(formatted_row)
 
-    print(inputDictionary)
-    print(outputDictionary)
 
-    operators = {}
-    operands = {}
-
-    for index in splits:
-        if index in keyWords or index in opers:
-            if index in operators:
-                count = operators[index]
-                count += 1
-                operators[index] = count
-            else:
-                operators[index] = 1
-        else:
-            if index in operands:
-                count = operands[index]
-                count += 1
-                operands[index] = count
-            else:
-                operands[index] = 1
-
-    smallN1 = 0
-    capitalN1 = 0
-    smallN2 = 0
-    capitalN2 = 0
-    temp = 0
-
-    for n in operators:
-        capitalN1 += operators[n]
-        smallN1 += 1
-
-    for n in operands:
-        capitalN2 += operands[n]
-        smallN2 += 1
-
-    ccCount = 1
-
-    for n in operators:
-        if n in loopWords:
-            ccCount += operators[n]
-
-    progLength = capitalN1 + capitalN2
-    progVocab = smallN1 + smallN2
-    estimatedLength = (smallN1 * math.log2(smallN1)) + (smallN2 * math.log2(smallN2))
-    purityRatio = estimatedLength / progLength
-    volume = estimatedLength * math.log2(progVocab)
-    difficulty = (smallN1 / 2) * (capitalN2 / smallN2)
-    progEffort = difficulty * volume
-    progTime = progEffort / 18
-    deliveredBug = volume / 3000
-
-    results = {'n1': smallN1, 'N1': capitalN1, 'n2': smallN2, 'N2': capitalN2, 'progLength': progLength,
-               'progVocab': progVocab,
-               'estimatedLength': estimatedLength, 'purityRatio': purityRatio, 'volume': volume,
-               'difficulty': difficulty,
-               'progEffort': progEffort, 'progTime': progTime, 'deliveredBug': deliveredBug, 'codeBox': codeBox,
-               'ccCount': ccCount}
-
-    file.close()
-    return results
+exampleFile = "E:/ASU/Semester 10/Program Analysis/Project/Data-Flow-Analysis/example.c"
+DataFlowAnalysis(exampleFile)
